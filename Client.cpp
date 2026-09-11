@@ -48,53 +48,62 @@ void Client::draw2D(ImVec2 windowSize)
   auto bottom_margin = 50;
   auto width = windowSize.x - left_margin;
   auto height = windowSize.y - top_margin - bottom_margin;
-  if(!root_.empty())
+  auto draw_plots_tab = [&]() {
+    if(active_plots_.empty() && inactive_plots_.empty()) { return; }
+    enable_bold_font();
+    if(ImGui::BeginTabItem("Plots"))
+    {
+      disable_bold_font();
+      ImGuiTabBarFlags tab_bar_flags = ImGuiTabBarFlags_Reorderable;
+      if(ImGui::BeginTabBar("##mc_rtc_plot_subtabs", tab_bar_flags))
+      {
+        size_t id = 0;
+        for(auto & p : active_plots_)
+        {
+          auto tab_id = fmt::format("{}##{}", p.second->title(), id++);
+          enable_bold_font();
+          if(ImGui::BeginTabItem(tab_id.c_str()))
+          {
+            disable_bold_font();
+            p.second->do_plot();
+            ImGui::EndTabItem();
+          }
+          else
+          {
+            disable_bold_font();
+          }
+        }
+        for(auto it = inactive_plots_.begin(); it != inactive_plots_.end();)
+        {
+          auto & p = *it;
+          auto tab_id = fmt::format("{}##{}", p->title(), id++);
+          bool open_ = true;
+          if(ImGui::BeginTabItem(tab_id.c_str(), &open_))
+          {
+            p->do_plot();
+            ImGui::EndTabItem();
+          }
+          it = open_ ? std::next(it) : inactive_plots_.erase(it);
+        }
+        ImGui::EndTabBar();
+      }
+      ImGui::EndTabItem();
+    }
+    else
+    {
+      disable_bold_font();
+    }
+  };
+
+  bool has_gui = !root_.empty();
+  bool has_plots = active_plots_.size() || inactive_plots_.size();
+  if(has_gui || has_plots)
   {
     ImGui::SetNextWindowPos(ImVec2(left_margin, top_margin), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(0.4f * width, 0.7f * height), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(0.5f * width, 0.7f * height), ImGuiCond_FirstUseEver);
     ImGui::Begin("mc_rtc");
-    root_.draw2D();
+    root_.draw2D(draw_plots_tab);
     ImGui::End();
-  }
-  if(active_plots_.size() || inactive_plots_.size())
-  {
-    bool open_plots = true;
-    ImGui::Begin("Plots", active_plots_.size() != 0 ? nullptr : &open_plots);
-    ImGuiTabBarFlags tab_bar_flags = ImGuiTabBarFlags_Reorderable;
-    if(ImGui::BeginTabBar("Plots", tab_bar_flags))
-    {
-      size_t id = 0;
-      for(auto & p : active_plots_)
-      {
-        auto tab_id = fmt::format("{}##{}", p.second->title(), id++);
-        enable_bold_font();
-        if(ImGui::BeginTabItem(tab_id.c_str()))
-        {
-          disable_bold_font();
-          p.second->do_plot();
-          ImGui::EndTabItem();
-        }
-        else
-        {
-          disable_bold_font();
-        }
-      }
-      for(auto it = inactive_plots_.begin(); it != inactive_plots_.end();)
-      {
-        auto & p = *it;
-        auto tab_id = fmt::format("{}##{}", p->title(), id++);
-        bool open_ = true;
-        if(ImGui::BeginTabItem(tab_id.c_str(), &open_))
-        {
-          p->do_plot();
-          ImGui::EndTabItem();
-        }
-        it = open_ ? std::next(it) : inactive_plots_.erase(it);
-      }
-      ImGui::EndTabBar();
-    }
-    ImGui::End();
-    if(!open_plots) { inactive_plots_.clear(); }
   }
 }
 

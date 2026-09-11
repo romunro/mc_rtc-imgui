@@ -2,6 +2,8 @@
 
 #include "Widget.h"
 
+#include <functional>
+
 namespace mc_rtc::imgui
 {
 
@@ -21,7 +23,7 @@ struct Category
 
   inline bool empty() const { return widgets.size() == 0 && categories.size() == 0; }
 
-  void draw2D();
+  void draw2D(const std::function<void()> & extra_tab = nullptr);
   void draw3D();
   void started();
   void stopped();

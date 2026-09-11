@@ -66,11 +66,19 @@ void Plot::plot_point(uint64_t did,
     return plots_[did];
   };
   auto & plot = get_plot();
+  if(!plot.points.empty() && x < plot.points.back().x)
+  {
+    plot.points.clear();
+  }
   plot.label = label;
   plot.color = color;
   plot.style = style;
   plot.side = side;
   plot.points.push_back({x, y});
+  if(plot.points.size() > 1500)
+  {
+    plot.points.erase(plot.points.begin(), plot.points.begin() + 500);
+  }
   side == Side::Left ? y_plots_++ : y2_plots_++;
 }
 
@@ -103,8 +111,26 @@ void Plot::do_plot()
   ImPlotAxisFlags x_flags = ImPlotAxisFlags_AutoFit;
   ImPlotAxisFlags y_flags = ImPlotAxisFlags_AutoFit;
   ImPlotAxisFlags y2_flags = ImPlotAxisFlags_AutoFit | ImPlotAxisFlags_Opposite;
+  bool has_left = false;
+  bool has_right = false;
+  for(const auto & pp : plots_)
+  {
+    if(pp.second.side == Side::Left) { has_left = true; }
+    if(pp.second.side == Side::Right) { has_right = true; }
+  }
+  for(const auto & pp : polygons_)
+  {
+    if(pp.second.side == Side::Left) { has_left = true; }
+    if(pp.second.side == Side::Right) { has_right = true; }
+  }
+  for(const auto & pp : polygonGroups_)
+  {
+    if(pp.second.side == Side::Left) { has_left = true; }
+    if(pp.second.side == Side::Right) { has_right = true; }
+  }
+
   const char * y_label = y_label_.c_str();
-  if(y_plots_ == 0)
+  if(!has_left)
   {
     y_flags = ImPlotAxisFlags_NoDecorations;
     y_label = nullptr;
@@ -114,7 +140,7 @@ void Plot::do_plot()
     y2_flags |= ImPlotAxisFlags_NoGridLines;
   }
   const char * y2_label = y2_label_.c_str();
-  if(y2_plots_ == 0)
+  if(!has_right)
   {
     y2_flags = ImPlotAxisFlags_NoDecorations;
     y2_label = nullptr;
@@ -122,9 +148,31 @@ void Plot::do_plot()
   bool do_ = ImPlot::BeginPlot(fmt::format("{}##{}", title_, uid_).c_str(), ImVec2{-1, 0}, ImPlotFlags_YAxis2);
   if(!do_) { return; }
   ImPlot::SetupAxis(ImAxis_X1, x_label_.c_str(), x_flags);
-  if(y_plots_ != 0) { ImPlot::SetupAxis(ImAxis_Y1, y_label, y_flags); }
-  if(y2_plots_ != 0) { ImPlot::SetupAxis(ImAxis_Y2, y2_label, y2_flags); }
-  if(x_limits_) { ImPlot::SetupAxisLimits(ImAxis_X1, x_limits_->first, x_limits_->second, ImGuiCond_Always); }
+  if(has_left) { ImPlot::SetupAxis(ImAxis_Y1, y_label, y_flags); }
+  if(has_right) { ImPlot::SetupAxis(ImAxis_Y2, y2_label, y2_flags); }
+  if(!x_limits_ && !plots_.empty())
+  {
+    double latest_x = 0;
+    for(const auto & pp : plots_)
+    {
+      if(!pp.second.points.empty())
+      {
+        latest_x = std::max(latest_x, pp.second.points.back().x);
+      }
+    }
+    if(latest_x > 10.0)
+    {
+      ImPlot::SetupAxisLimits(ImAxis_X1, latest_x - 10.0, latest_x, ImGuiCond_Always);
+    }
+    else
+    {
+      ImPlot::SetupAxisLimits(ImAxis_X1, 0.0, 10.0, ImGuiCond_Always);
+    }
+  }
+  else if(x_limits_)
+  {
+    ImPlot::SetupAxisLimits(ImAxis_X1, x_limits_->first, x_limits_->second, ImGuiCond_Always);
+  }
   if(y_limits_) { ImPlot::SetupAxisLimits(ImAxis_Y1, y_limits_->first, y_limits_->second, ImGuiCond_Always); }
   if(y2_limits_) { ImPlot::SetupAxisLimits(ImAxis_Y2, y2_limits_->first, y2_limits_->second, ImGuiCond_Always); }
   auto toImVec4 = [](const Color & color)
@@ -177,11 +225,18 @@ void Plot::do_plot()
   for(const auto & pp : plots_)
   {
     const auto & p = pp.second;
+    if(p.points.empty()) continue;
     ImPlot::SetAxis(p.side == Side::Left ? ImAxis_Y1 : ImAxis_Y2);
-    if(p.style == Style::Point)
+    if(p.style == Style::Dotted)
+    {
+      ImPlot::SetNextLineStyle(toImVec4(p.color), 1.0f);
+      ImPlot::SetNextMarkerStyle(ImPlotMarker_Circle, 2.0f, toImVec4(p.color), 0.5f, toImVec4(p.color));
+      ImPlot::PlotLine(p.label.c_str(), &p.points[0].x, &p.points[0].y, static_cast<int>(p.points.size()), 0, 0, sizeof(Point));
+    }
+    else if(p.style == Style::Point)
     {
       ImPlot::SetNextLineStyle({0, 0, 0, 0});
-      ImPlot::PlotLine(p.label.c_str(), &p.points[0].x, &p.points[0].y, p.points.size(), 0, sizeof(Point));
+      ImPlot::PlotLine(p.label.c_str(), &p.points[0].x, &p.points[0].y, static_cast<int>(p.points.size()), 0, 0, sizeof(Point));
       if(ImPlot::BeginItem(p.label.c_str()))
       {
         ImPlot::GetCurrentItem()->Color = toImU32(p.color);
@@ -194,9 +249,8 @@ void Plot::do_plot()
     }
     else
     {
-      // FIXME We can not plot dashed and dotted lines yet
       ImPlot::SetNextLineStyle(toImVec4(p.color));
-      ImPlot::PlotLine(p.label.c_str(), &p.points[0].x, &p.points[0].y, p.points.size(), 0, sizeof(Point));
+      ImPlot::PlotLine(p.label.c_str(), &p.points[0].x, &p.points[0].y, static_cast<int>(p.points.size()), 0, 0, sizeof(Point));
     }
   }
   {

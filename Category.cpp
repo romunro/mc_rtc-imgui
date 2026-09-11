@@ -5,7 +5,7 @@
 namespace mc_rtc::imgui
 {
 
-void Category::draw2D()
+void Category::draw2D(const std::function<void()> & extra_tab)
 {
   for(size_t i = 0; i < widgets.size();)
   {
@@ -28,13 +28,13 @@ void Category::draw2D()
     ImGui::EndTable();
     if(i != widgets.size()) { IndentedSeparator(); }
   }
-  if(categories.size())
+  if(categories.size() || extra_tab)
   {
     ImGui::Indent();
     std::sort(categories.begin(), categories.end(),
               [](const auto & lhs, const auto & rhs) { return lhs->name < rhs->name; });
     ImGuiTabBarFlags tab_bar_flags = ImGuiTabBarFlags_Reorderable;
-    if(ImGui::BeginTabBar(name.c_str(), tab_bar_flags))
+    if(ImGui::BeginTabBar(name.empty() ? "##mc_rtc_main_tab_bar" : name.c_str(), tab_bar_flags))
     {
       for(auto & cat : categories)
       {
@@ -43,6 +43,10 @@ void Category::draw2D()
           cat->draw2D();
           ImGui::EndTabItem();
         }
+      }
+      if(extra_tab)
+      {
+        extra_tab();
       }
       ImGui::EndTabBar();
     }
