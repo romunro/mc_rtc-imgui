@@ -17,12 +17,11 @@ struct NumberInput : public SingleInput<double>
 
   inline void draw2D() override
   {
-    double * data = busy_ ? &buffer_ : &data_;
-    SingleInput::draw2D(ImGui::InputDouble, data, 0.0, 0.0, "%.6g");
+    SingleInput::draw2D(ImGui::InputDouble, &buffer_, 0.0, 0.0, "%.6g");
     if(ImGui::IsItemHovered())
     {
       ImGui::BeginTooltip();
-      ImGui::Text("%f", *data);
+      ImGui::Text("%f", buffer_);
       ImGui::EndTooltip();
     }
   }

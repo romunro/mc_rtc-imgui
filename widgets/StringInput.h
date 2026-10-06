@@ -7,7 +7,10 @@ namespace mc_rtc::imgui
 
 struct StringInput : public SingleInput<std::string>
 {
-  inline StringInput(Client & client, const ElementId & id) : SingleInput<std::string>(client, id) {}
+  inline StringInput(Client & client, const ElementId & id) : SingleInput<std::string>(client, id)
+  {
+    buffer_.resize(256, '\0');
+  }
 
   ~StringInput() override = default;
 
@@ -21,11 +24,9 @@ struct StringInput : public SingleInput<std::string>
 
   inline void draw2D() override
   {
-    char * data = busy_ ? buffer_.data() : data_.data();
-    size_t data_len = busy_ ? buffer_.size() : data_.size();
     auto InputText = [](const char * label, char * buffer, size_t len, int flags)
     { return ImGui::InputText(label, buffer, len, flags); };
-    SingleInput::draw2D(InputText, data, data_len);
+    SingleInput::draw2D(InputText, buffer_.data(), buffer_.size());
   }
 
 private:

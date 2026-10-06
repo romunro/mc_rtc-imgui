@@ -75,9 +75,19 @@ void Plot::plot_point(uint64_t did,
   plot.style = style;
   plot.side = side;
   plot.points.push_back({x, y});
-  if(plot.points.size() > 1500)
+  if(plot.points.size() > 100000)
   {
-    plot.points.erase(plot.points.begin(), plot.points.begin() + 500);
+    plot.points.erase(plot.points.begin(), plot.points.begin() + 10000);
+  }
+  else if(plot.points.back().x - plot.points.front().x > 15.0)
+  {
+    double cutoff = plot.points.back().x - 12.0;
+    auto it = plot.points.begin();
+    while(it != plot.points.end() && it->x < cutoff)
+    {
+      ++it;
+    }
+    plot.points.erase(plot.points.begin(), it);
   }
   side == Side::Left ? y_plots_++ : y2_plots_++;
 }

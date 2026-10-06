@@ -14,7 +14,11 @@ struct SingleInput : public Widget
 
   inline void data(const DataT & data)
   {
-    if(!busy_) { data_ = data; }
+    if(!busy_)
+    {
+      data_ = data;
+      setupBuffer();
+    }
   }
 
   virtual void setupBuffer() {}
@@ -28,34 +32,24 @@ struct SingleInput : public Widget
     ImGui::TableNextColumn();
     ImGui::Text("%s", id.name.c_str());
     ImGui::TableNextColumn();
-    if(!busy_)
+    ImGui::Text("");
+
+    ImGui::TableNextColumn();
+    bool entered = fn(label("", "Input").c_str(), std::forward<Args>(args)..., ImGuiInputTextFlags_EnterReturnsTrue);
+    busy_ = ImGui::IsItemActive();
+
+    if(entered || (ImGui::IsItemDeactivatedAfterEdit() && (ImGui::IsKeyPressed(ImGuiKey_Enter) || ImGui::IsKeyPressed(ImGuiKey_KeypadEnter))))
     {
-      if(ImGui::Button(label("Edit").c_str()))
+      auto nData = dataFromBuffer();
+      if(nData != data_)
       {
-        busy_ = true;
-        setupBuffer();
+        data_ = nData;
+        client.send_request(id, data_);
       }
-      ImGui::TableNextColumn();
-      fn("", std::forward<Args>(args)..., ImGuiInputTextFlags_ReadOnly);
     }
-    else
+    else if(ImGui::IsItemDeactivated())
     {
-      bool clicked = ImGui::Button(label("Done").c_str());
-      ImGui::TableNextColumn();
-      fn(label("", "Input").c_str(), std::forward<Args>(args)..., ImGuiInputTextFlags_None);
-      if(clicked
-         || (ImGui::IsItemDeactivatedAfterEdit()
-             && (ImGui::IsKeyPressed(ImGuiKey_Enter) || ImGui::IsKeyPressed(ImGuiKey_KeypadEnter))))
-      {
-        auto nData = dataFromBuffer();
-        if(nData != data_)
-        {
-          data_ = nData;
-          client.send_request(id, data_);
-          data_ = nData;
-        }
-        busy_ = false;
-      }
+      setupBuffer(); // Revert to data_ when focus is lost without enter
     }
     ImGui::EndTable();
   }
